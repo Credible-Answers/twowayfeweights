@@ -19,29 +19,104 @@ get_random_weight_rename  <- function(ws)         unlist(lapply(ws,         fn_r
 # -----------------------------------------------------------------------------
 # Rename input columns to internal canonical names.
 # -----------------------------------------------------------------------------
-twowayfeweights_rename_var <- function(df, Y, G, T, D, D0, controls, treatments,
-                                       random_weights) {
+twowayfeweights_rename_var <- function (df, Y, G, T, D, D0, controls, treatments, random_weights){
+  
+  if (!data.table::is.data.table(df)) {
+    df <- data.table::as.data.table(df)
+  }
+  
+  # Initialisation
+  Y_df              <- NULL
+  G_df              <- NULL
+  T_df              <- NULL
+  D_df              <- NULL
 
-  controls_rename   <- get_controls_rename(controls)
-  treatments_rename <- get_treatments_rename(treatments)
+  D0_df             <- NULL
+  random_weight_df  <- NULL
+  controls_df       <- NULL
+  treatments_df     <- NULL
 
-  original_names <- c(Y, G, T, D, controls, treatments)
-  new_names      <- c("Y", "G", "T", "D", controls_rename, treatments_rename)
+  controls_rename       <- NULL
+  treatments_rename     <- NULL
+  random_weight_rename  <- NULL
 
-  if (!is.null(D0)) {
-    original_names <- c(original_names, D0)
-    new_names      <- c(new_names, "D0")
+  # To solve the devtools::check() NOTE
+  ..cols <- NULL
+  ..id.col <- NULL
+
+  # Generate a random character value that
+  # is not contained in the column names
+  # to act as the identification column
+  id.col = paste(sample(LETTERS, 10, TRUE), collapse = '')
+  while(id.col %in% colnames(df)){
+    id.col = paste(sample(LETTERS, 10, TRUE), collapse = '')
+  }
+  df[, (id.col) := 1:nrow(df)]
+
+  # Create one dataframe for the 1-length vector variables
+  core.variables <- c(Y, G, T, D, D0)
+  names.variables <- c("Y", "G", "T", "D", "D0")
+  for(x in seq_along(core.variables)){
+    if(!is.null(core.variables[x])){
+      name.df <- paste0(names.variables[x], "_df")
+      cols <- c(core.variables[x], id.col)
+      assign(name.df, df[, ..cols])
+
+      new.names <- c(names.variables[x], id.col)
+      data.table::setnames(eval(as.symbol(name.df)), new.names)
+    }
   }
 
-  out <- data.table::as.data.table(df)[, ..original_names]
-  data.table::setnames(out, old = original_names, new = new_names)
+  if(!is.null(controls)){
+    controls_rename     <- get_controls_rename(controls)
+    cols <- c(controls, (id.col))
+    controls_df = df[, ..cols]
 
-  if (length(random_weights) > 0) {
-    rw_new <- get_random_weight_rename(random_weights)
-    rw_dt  <- data.table::as.data.table(df)[, ..random_weights]
-    data.table::setnames(rw_dt, old = random_weights, new = rw_new)
-    out <- cbind(out, rw_dt)
+    new.names.controls  = c(controls_rename, id.col)
+    data.table::setnames(controls_df, new.names.controls)
   }
+
+  if(!is.null(treatments)){
+    treatments_rename   <- get_treatments_rename(treatments)
+    cols <- c(treatments, (id.col))
+    treatments_df = df[, ..cols]
+
+    new.names.treatments  = c(treatments_rename, id.col)
+    data.table::setnames(treatments_df, (new.names.treatments))
+  }
+
+  if(length(random_weights) > 0) {
+    random_weight_rename <- get_random_weight_rename(random_weights)
+    cols <- c(random_weights, (id.col))
+    random_weight_df = df[, ..cols]
+
+    new.names.random_weights   = c(random_weight_rename, id.col)
+    data.table::setnames(random_weight_df, (new.names.random_weights))
+  }
+
+  out <- df[, ..id.col]
+  final.variables <- c("Y", "G", "T", "D", "D0")
+  for(x in final.variables){
+    df.to.merge <- eval(as.symbol(paste0(x, "_df")))
+    if(!is.null(df.to.merge)){
+      out <- out[df.to.merge, on = (id.col)]
+    }
+  }
+
+  # Merge the other variables
+  # complementary.variables <- c(controls_rename, treatments_rename, random_weight_rename)
+  complementary.variables <- c("controls_df", "treatments_df", "random_weight_df")
+  for(x in seq_along(complementary.variables)){
+    if(!is.null(complementary.variables[x])){
+      df.to.merge <- eval(as.symbol(paste0(complementary.variables[x])))
+      if(!is.null(df.to.merge)){
+        out <- out[df.to.merge, on = (id.col)]
+      }
+    }
+  }
+
+  # Remove the id column
+  out[, (id.col) := NULL][]
 
   out
 }
