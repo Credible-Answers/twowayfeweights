@@ -26,6 +26,34 @@ install.packages("TwoWayFEWeights")
 [![](http://cranlogs.r-pkg.org/badges/last-week/TwoWayFEWeights?color=green)](https://cran.r-project.org/package=TwoWayFEWeights)
 [![](http://cranlogs.r-pkg.org/badges/grand-total/TwoWayFEWeights?color=green)](https://cran.r-project.org/package=TwoWayFEWeights)
 
+ 
+## Julia
+ 
+A Julia version of `twowayfeweights`, developed by Paulo Gugelmo Cavalheiro Dias, is available from the official Julia registry. Source code: [TwoWayFEWeights.jl](https://github.com/Paulogcd/TwoWayFEWeights.jl). Full documentation: [here](https://www.paulogcd.com/TwoWayFEWeights.jl/dev/).
+ 
+Installation:
+ 
+``` julia
+using Pkg
+Pkg.add("TwoWayFEWeights")
+```
+ 
+Syntax (the arguments and options mirror the R version and are passed as keywords):
+ 
+``` julia
+using TwoWayFEWeights
+twowayfeweights(data = df, Y = "Y", G = "G", T = "T", D = "D", type = "feTR")
+```
+ 
+Example with the wagepan data used below:
+ 
+``` julia
+using TwoWayFEWeights, Downloads, ReadStatTables, DataFrames
+url = "https://raw.githubusercontent.com/chaisemartinPackages/twowayfeweights/main/wagepan_twfeweights.dta"
+wagepan = DataFrame(readstat(Downloads.download(url)))
+twowayfeweights(data = wagepan, Y = "lwage", G = "nr", T = "year", D = "union",
+                type = "feTR", summary_measures = true, test_random_weights = "educ")
+```
 ## Vignettes
 
 + [Storing twowayfeweight output in LaTeX](https://github.com/chaisemartinPackages/twowayfeweights/blob/main/vignettes/vignette_1.md)
